@@ -15,8 +15,8 @@ from graph_builder import GraphBuilder
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--input", required=False, default="../data/raw/musique_ans_v1.0_dev.jsonl", help="Path to musique jsonl file")
-    p.add_argument("--outdir", required=False, default="./graphs", help="Output directory for graph files")
+    p.add_argument("--input", required=False, default="./data/raw/musique_ans_v1.0_dev.jsonl", help="Path to musique jsonl file")
+    p.add_argument("--outdir", required=False, default="./graph/graphs", help="Output directory for graph files")
     p.add_argument("--model", required=False, default="all-MiniLM-L6-v2", help="SentenceTransformer model name")
     p.add_argument("--limit", type=int, default=10, help="Number of examples to process (for quick tests)")
     args = p.parse_args()

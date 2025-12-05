@@ -23,12 +23,12 @@ This project constructs knowledge graphs from the Musique dataset for NLP tasks.
 To build graphs from a Musique JSONL file, use the `graph/build_graph.py` script.
 
 ```bash
-python graph/build_graph.py --input ../data/raw/musique_ans_v1.0_dev.jsonl --outdir ./graphs --limit 10
+python graph/build_graph.py --input ./data/raw/musique_ans_v1.0_dev.jsonl --outdir ./graph/graphs --limit 10
 ```
 
 **Arguments:**
-*   `--input`: Path to the input Musique JSONL file (default: `../data/raw/musique_ans_v1.0_dev.jsonl`).
-*   `--outdir`: Output directory for the generated graph pickle files (default: `./graphs`).
+*   `--input`: Path to the input Musique JSONL file (default: `./data/raw/musique_ans_v1.0_dev.jsonl`).
+*   `--outdir`: Output directory for the generated graph pickle files (default: `./graph/graphs`).
 *   `--model`: SentenceTransformer model name to use for embeddings (default: `all-MiniLM-L6-v2`).
 *   `--limit`: Number of examples to process (useful for testing).
 

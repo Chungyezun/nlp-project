@@ -36,7 +36,7 @@ class LLMReasoner:
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
     
-    def reason(self, question, retrieved_docs, max_new_tokens=256, temperature=0.7):
+    def reason(self, question, retrieved_docs, max_new_tokens=256, temperature=0.7, seed=42):
         """
         Generate reasoning given question and retrieved documents.
         
@@ -45,6 +45,7 @@ class LLMReasoner:
             retrieved_docs: List of retrieved document texts
             max_new_tokens: Maximum tokens to generate
             temperature: Sampling temperature
+            seed: Random seed for reproducibility
             
         Returns:
             Generated reasoning text (next sub-query or reasoning step)
@@ -67,12 +68,18 @@ Reasoning:"""
         inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         
+        # Set seed for reproducibility
+        if seed is not None:
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+        
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 temperature=temperature,
-                do_sample=True,
+                do_sample=True if temperature > 0 else False,
                 top_p=0.9,
                 pad_token_id=self.tokenizer.pad_token_id
             )

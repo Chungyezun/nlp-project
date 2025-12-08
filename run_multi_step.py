@@ -75,6 +75,11 @@ def main():
         default=1.0,
         help="Scaling factor for delta similarity"
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print detailed progress during retrieval"
+    )
     
     args = parser.parse_args()
     
@@ -120,9 +125,12 @@ def main():
     print("="*80)
     
     for i in range(n_examples):
-        print(f"\n\n{'#'*80}")
-        print(f"Example {i+1}/{n_examples}")
-        print(f"{'#'*80}")
+        if args.verbose:
+            print(f"\n\n{'#'*80}")
+            print(f"Example {i+1}/{n_examples}")
+            print(f"{'#'*80}")
+        else:
+            print(f"Processing example {i+1}/{n_examples}...", end=" ", flush=True)
         
         # Get example data
         question, titles, docs_sentences = loader.get_example(i)
@@ -130,8 +138,9 @@ def main():
         # Convert sentence lists to full document texts
         doc_texts = [" ".join(sents) for sents in docs_sentences]
         
-        print(f"\nQuestion: {question}")
-        print(f"Number of documents: {len(doc_texts)}")
+        if args.verbose:
+            print(f"\nQuestion: {question}")
+            print(f"Number of documents: {len(doc_texts)}")
         
         # Run multi-step retrieval
         try:
@@ -139,7 +148,7 @@ def main():
                 initial_query=question,
                 doc_texts=doc_texts,
                 doc_titles=titles,
-                verbose=True
+                verbose=args.verbose
             )
             
             # Get supporting document indices from original data
@@ -169,23 +178,49 @@ def main():
                 'found_all_supporting': recall == 1.0
             })
             
+            if not args.verbose:
+                print(f"Done (recall: {recall:.2f})")
+            
         except Exception as e:
-            print(f"Error processing example {i}: {e}")
-            import traceback
-            traceback.print_exc()
+            if args.verbose:
+                print(f"Error processing example {i}: {e}")
+                import traceback
+                traceback.print_exc()
+            else:
+                print(f"Error: {e}")
             results.append({
                 'example_id': i,
                 'question': question,
                 'error': str(e)
             })
     
-    # Save results
+    # Calculate overall metrics
+    total_recalls = [r['recall'] for r in results if 'recall' in r]
+    avg_recall = sum(total_recalls) / len(total_recalls) if total_recalls else 0.0
+    num_perfect = sum(1 for r in results if r.get('found_all_supporting', False))
+    
+    # Save results with summary
+    output_data = {
+        'summary': {
+            'total_examples': len(results),
+            'average_recall': avg_recall,
+            'perfect_recall_count': num_perfect,
+            'perfect_recall_rate': num_perfect / len(results) if results else 0.0
+        },
+        'results': results
+    }
+    
     print(f"\n{'='*80}")
+    print(f"Overall Results:")
+    print(f"  Total examples: {len(results)}")
+    print(f"  Average recall: {avg_recall:.4f}")
+    print(f"  Perfect recall (100%): {num_perfect}/{len(results)} ({num_perfect/len(results)*100:.1f}%)")
+    print(f"{'='*80}")
+    
     print(f"Saving results to {args.output}...")
     with open(args.output, 'w', encoding='utf-8') as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
     
-    print(f"Completed! Processed {len(results)} examples.")
     print(f"Results saved to {args.output}")
 
 

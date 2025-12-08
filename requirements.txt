@@ -3,3 +3,6 @@ numpy
 tqdm
 sentence-transformers
 requests
+torch
+transformers
+accelerate

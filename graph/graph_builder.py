@@ -1,7 +1,7 @@
 import networkx as nx
 import numpy as np
 from tqdm import tqdm
-from utils_text import merge_two_docs
+from .utils_text import merge_two_docs
 
 
 class GraphBuilder:

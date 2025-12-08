@@ -51,6 +51,7 @@ graphs/
 *.gpickle
 graph/output/
 graph/graphs/
+results/
 
 # Logs
 *.log

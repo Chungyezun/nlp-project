@@ -6,3 +6,4 @@ requests
 torch
 transformers
 accelerate
+rank-bm25

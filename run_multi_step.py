@@ -12,6 +12,7 @@ from data.loader.musique_loader import MuSiQueLoader
 from graph.embedder import TextEmbedder
 from graph.graph_builder import GraphBuilder
 from graph.graph_builder_new import GraphBuilder as GraphBuilderNew
+from graph.graph_builder_alpha import GraphBuilder as GraphBuilderAlpha
 from graph.llm_reasoner import LLMReasoner
 from graph.multi_step_retriever import MultiStepRetriever
 
@@ -78,9 +79,15 @@ def main():
     )
     parser.add_argument(
         "--graph_builder",
-        choices=["default", "new"],
+        choices=["default", "new", "alpha"],
         default="default",
         help="Select graph builder implementation"
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.3,
+        help="alpha for kyong graph builder (weight on min(prize_i, prize_j))"
     )
     # graph_builder_new 전용 옵션
     parser.add_argument(
@@ -143,6 +150,16 @@ def main():
             para_topk=args.para_topk,
             para_softmax_beta=args.para_softmax_beta,
             para_threshold=args.para_threshold
+        )
+    elif args.graph_builder == "alpha":
+        graph_builder = GraphBuilderAlpha(
+            lambda1=args.lambda1,
+            lambda2=args.lambda2,
+            gamma=args.gamma,
+            embedder=embedder,
+            union_mode="reencode",
+            cost_mode="scaled",
+            alpha=args.alpha
         )
     else:
         graph_builder = GraphBuilder(

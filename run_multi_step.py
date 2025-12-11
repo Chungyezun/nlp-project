@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data.loader.musique_loader import MuSiQueLoader
 from graph.embedder import TextEmbedder
 from graph.graph_builder import GraphBuilder
+from graph.graph_builder_new import GraphBuilder as GraphBuilderNew
 from graph.llm_reasoner import LLMReasoner
 from graph.multi_step_retriever import MultiStepRetriever
 
@@ -76,6 +77,37 @@ def main():
         help="Scaling factor for delta similarity"
     )
     parser.add_argument(
+        "--graph_builder",
+        choices=["default", "new"],
+        default="default",
+        help="Select graph builder implementation"
+    )
+    # graph_builder_new 전용 옵션
+    parser.add_argument(
+        "--para_sim_mode",
+        choices=["max", "top-k_avg", "softmax", "threshold", "sym_max"],
+        default="max",
+        help="Sentence-pair aggregation mode for paragraph similarity (graph_builder_new only)"
+    )
+    parser.add_argument(
+        "--para_topk",
+        type=int,
+        default=3,
+        help="k for top-k_avg paragraph similarity (graph_builder_new only)"
+    )
+    parser.add_argument(
+        "--para_softmax_beta",
+        type=float,
+        default=10.0,
+        help="beta temperature for softmax paragraph similarity (graph_builder_new only)"
+    )
+    parser.add_argument(
+        "--para_threshold",
+        type=float,
+        default=0.5,
+        help="similarity threshold for threshold mode (graph_builder_new only)"
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print detailed progress during retrieval"
@@ -99,14 +131,28 @@ def main():
     llm_reasoner = LLMReasoner(model_name=args.llm_model)
     
     print("Initializing graph builder...")
-    graph_builder = GraphBuilder(
-        lambda1=args.lambda1,
-        lambda2=args.lambda2,
-        gamma=args.gamma,
-        embedder=embedder,
-        union_mode="reencode",
-        cost_mode="scaled"
-    )
+    if args.graph_builder == "new":
+        graph_builder = GraphBuilderNew(
+            lambda1=args.lambda1,
+            lambda2=args.lambda2,
+            gamma=args.gamma,
+            embedder=embedder,
+            union_mode="reencode",
+            cost_mode="scaled",
+            para_sim_mode=args.para_sim_mode,
+            para_topk=args.para_topk,
+            para_softmax_beta=args.para_softmax_beta,
+            para_threshold=args.para_threshold
+        )
+    else:
+        graph_builder = GraphBuilder(
+            lambda1=args.lambda1,
+            lambda2=args.lambda2,
+            gamma=args.gamma,
+            embedder=embedder,
+            union_mode="reencode",
+            cost_mode="scaled"
+        )
     
     print("Initializing multi-step retriever...")
     retriever = MultiStepRetriever(

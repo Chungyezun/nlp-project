@@ -17,6 +17,10 @@ def analyze_results(results_file):
     num_retrieved = []
     
     for r in results:
+        # final_doc_indices가 없으면 스킵 (손상된 결과)
+        if 'final_doc_indices' not in r or 'supporting_doc_indices' not in r:
+            continue
+            
         retrieved_set = set(r['final_doc_indices'])
         supporting_set = set(r['supporting_doc_indices'])
         
@@ -48,23 +52,29 @@ def analyze_results(results_file):
         em_scores.append(em)
     
     # 계산
-    avg_recall = sum(recalls) / num_examples
+    num_valid_examples = len(recalls)  # 유효한 결과 개수
+    avg_recall = sum(recalls) / num_valid_examples if num_valid_examples > 0 else 0.0
     perfect_recall_count = sum(1 for r in recalls if r == 1.0)
-    perfect_recall_rate = perfect_recall_count / num_examples
+    perfect_recall_rate = perfect_recall_count / num_valid_examples if num_valid_examples > 0 else 0.0
     
-    avg_precision = sum(precisions) / num_examples
-    avg_f1 = sum(f1_scores) / num_examples
-    em_rate = sum(em_scores) / num_examples
+    avg_precision = sum(precisions) / num_valid_examples if num_valid_examples > 0 else 0.0
+    avg_f1 = sum(f1_scores) / num_valid_examples if num_valid_examples > 0 else 0.0
+    em_rate = sum(em_scores) / num_valid_examples if num_valid_examples > 0 else 0.0
     em_count = int(sum(em_scores))
     
-    avg_num_retrieved = sum(num_retrieved) / num_examples
-    min_num_retrieved = min(num_retrieved)
-    max_num_retrieved = max(num_retrieved)
+    avg_num_retrieved = sum(num_retrieved) / num_valid_examples if num_valid_examples > 0 else 0.0
+    min_num_retrieved = min(num_retrieved) if num_retrieved else 0
+    max_num_retrieved = max(num_retrieved) if num_retrieved else 0
     
     # recall@k 계산 (k = 뽑은 문서 수별)
     recall_at_k = defaultdict(list)
     f1_at_k = defaultdict(list)
     for i, r in enumerate(results):
+        # 유효한 결과만 처리
+        if 'final_doc_indices' not in r:
+            continue
+        if i >= len(recalls):  # recalls 리스트와 동기화
+            break
         k = len(r['final_doc_indices'])
         recall_at_k[k].append(recalls[i])
         f1_at_k[k].append(f1_scores[i])
@@ -73,7 +83,7 @@ def analyze_results(results_file):
     print("=" * 60)
     print(f"Results Analysis: {results_file}")
     print("=" * 60)
-    print(f"Total Examples: {num_examples}")
+    print(f"Total Examples: {num_examples} (Valid: {num_valid_examples})")
     print()
     
     print("[Retrieval Metrics]")
@@ -101,7 +111,8 @@ def analyze_results(results_file):
         avg_recall_k = sum(recall_at_k[k]) / count
         avg_f1_k = sum(f1_at_k[k]) / count
         # precision은 정의상 k가 늘어나면 감소 경향이 있으므로 별도 계산
-        precisions_k = [precisions[i] for i, r in enumerate(results) if len(r['final_doc_indices']) == k]
+        precisions_k = [precisions[i] for i, r in enumerate(results) 
+                       if 'final_doc_indices' in r and len(r['final_doc_indices']) == k and i < len(precisions)]
         avg_precision_k = sum(precisions_k) / len(precisions_k) if precisions_k else 0.0
         print(f"{k:3d} | {count:5d} | {avg_recall_k:7.4f} | {avg_precision_k:9.4f} | {avg_f1_k:7.4f}")
     print()
@@ -130,8 +141,8 @@ if __name__ == '__main__':
     import sys
     
     # 두 결과 파일 비교
-    file1 = 'results/multi_step_results_100.json'
-    file2 = 'results/ircot_baseline_results_100.json'
+    file1 = 'results/multi_step_results.json'
+    file2 = 'results/ircot_baseline_results.json'
     
     print(f"\n[1] Graph-based Multi-Step Retrieval")
     stats1 = analyze_results(file1)

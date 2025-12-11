@@ -5,7 +5,7 @@ from utils_text import merge_two_docs
 
 
 class GraphBuilder:
-    def __init__(self, lambda1=0.5, lambda2=0.5, gamma=1, b=1, embedder=None, union_mode="avg", cost_mode="default", delta_mode="max"):
+    def __init__(self, lambda1=0.5, lambda2=0.5, gamma=1, b=1, embedder=None, union_mode="avg", cost_mode="default", delta_mode="max", alpha=0.3 ):
         self.lambda1 = lambda1
         self.lambda2 = lambda2
         self.embedder = embedder
@@ -14,6 +14,7 @@ class GraphBuilder:
         self.union_mode = union_mode
         self.cost_mode = cost_mode
         self.delta_mode = delta_mode
+        self.alpha = alpha
 
     @staticmethod
     def _unit(v, eps=1e-12):
@@ -39,34 +40,32 @@ class GraphBuilder:
             prizes.append(prize)
 
         edge_scores = {}
+        k=3
+
         for i in range(n):
             for j in range(i+1, n):
                 sent_embs_i = doc_sent_embeddings[i]
                 sent_embs_j = doc_sent_embeddings[j]
 
-                max_sim_ij = max(
-                    self.embedder.sim(e_i, e_j) 
-                    for e_i in sent_embs_i 
-                    for e_j in sent_embs_j
-                )
+                # 각 문서의 문장들과 쿼리 similarity 계산
+                sims_i = [self.embedder.sim(e, query_embedding) for e in sent_embs_i]
+                sims_j = [self.embedder.sim(e, query_embedding) for e in sent_embs_j]
+                
+                # top-k 문장 인덱스 추출
+                topk_i = np.argsort(sims_i)[-k:]
+                topk_j = np.argsort(sims_j)[-k:]
 
-                sel_i_idx = G.nodes[i]['selected_sent_idx']
-                sel_j_idx = G.nodes[j]['selected_sent_idx']
+                # top-k 문장들 간의 pairwise similarity 계산
+                pair_sims = [
+                    self.embedder.sim(sent_embs_i[p], sent_embs_j[q])
+                    for p in topk_i
+                    for q in topk_j
+                ]
+                doc_sim = float(np.mean(pair_sims)) if pair_sims else 0.0
 
-                merged_text = docs_sentences[i][sel_i_idx] + " " + docs_sentences[j][sel_j_idx]
-                merged_emb = self.embedder.embed_single(merged_text)
-                sim_union_q = self.embedder.sim(merged_emb, query_embedding)
 
-                if self.delta_mode == "max":
-                    base_val = max(prizes[i], prizes[j])
-                elif self.delta_mode == "sum":
-                    base_val = prizes[i] + prizes[j]
-                else:
-                    raise ValueError(f"Unknown delta_mode={self.delta_mode}")
-
-                delta_sim = sim_union_q - base_val
-                delta_sim = self.gamma * delta_sim
-                score = self.lambda1 * max_sim_ij + self.lambda2 * delta_sim
+                q_min = min(prizes[i], prizes[j]) 
+                score = doc_sim + self.alpha * q_min
                 edge_scores[(i, j)] = score
 
         if self.cost_mode == "scaled":

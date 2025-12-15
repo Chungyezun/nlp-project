@@ -22,7 +22,8 @@ class MultiStepRetriever:
         graph_builder: GraphBuilder,
         llm_reasoner: LLMReasoner,
         max_steps: int = 3,
-        top_k_per_step: int = 3
+        top_k_per_step: int = 3,
+        doc_mode: str = "sent"
     ):
         """
         Initialize multi-step retriever.
@@ -33,12 +34,14 @@ class MultiStepRetriever:
             llm_reasoner: LLMReasoner instance for generating reasoning
             max_steps: Maximum number of retrieval-reasoning iterations
             top_k_per_step: Number of top documents to retrieve per step
+            doc_mode: "doc" for document-level graph, "sent" for sentence-level graph
         """
         self.embedder = embedder
         self.graph_builder = graph_builder
         self.llm_reasoner = llm_reasoner
         self.max_steps = max_steps
         self.top_k_per_step = top_k_per_step
+        self.doc_mode = doc_mode
     
     def retrieve_from_graph(self, G: nx.Graph, top_k: int) -> List[int]:
         """
@@ -141,17 +144,50 @@ class MultiStepRetriever:
                 print(f"{'='*60}")
             
             # 1. Encode documents and query
-            doc_embeddings = self.embedder.embed(doc_texts)
             query_embedding = self.embedder.embed_single(current_query)
             
-            # 2. Build graph
-            if verbose:
-                print("Building graph...")
-            G = self.graph_builder.build_graph_doclevel(
-                doc_embeddings,
-                query_embedding,
-                doc_texts=doc_texts
-            )
+            if self.doc_mode == "doc":
+                # Document-level mode
+                doc_embeddings = self.embedder.embed(doc_texts)
+                
+                # 2. Build graph (document-level)
+                if verbose:
+                    print("Building graph (document-level)...")
+                G = self.graph_builder.build_graph_doclevel(
+                    doc_embeddings,
+                    query_embedding,
+                    doc_texts=doc_texts
+                )
+            else:
+                # Sentence-level mode (default)
+                import re
+                docs_sentences = [re.split(r'[.!?]+', doc) for doc in doc_texts]
+                docs_sentences = [[s.strip() for s in sents if s.strip()] for sents in docs_sentences]
+                
+                # Embed sentences
+                all_sentences = [sent for doc_sents in docs_sentences for sent in doc_sents]
+                if all_sentences:
+                    sent_embeddings_flat = self.embedder.embed(all_sentences)
+                else:
+                    sent_embeddings_flat = []
+                
+                # Reconstruct sentence embeddings per document
+                doc_sent_embeddings = []
+                sent_idx = 0
+                for doc_sents in docs_sentences:
+                    num_sents = len(doc_sents)
+                    doc_sent_embeddings.append(sent_embeddings_flat[sent_idx:sent_idx + num_sents])
+                    sent_idx += num_sents
+                
+                # 2. Build graph (sentence-level)
+                if verbose:
+                    print("Building graph (sentence-level)...")
+                G = self.graph_builder.build_graph(
+                    doc_sent_embeddings,
+                    query_embedding,
+                    docs_sentences=docs_sentences,
+                    doc_titles=doc_titles
+                )
             
             # 3. Retrieve top-k documents from graph
             if verbose:

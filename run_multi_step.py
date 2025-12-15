@@ -84,6 +84,12 @@ def main():
         help="Select graph builder implementation"
     )
     parser.add_argument(
+        "--doc_mode",
+        choices=["doc", "sent"],
+        default="sent",
+        help="Graph building mode: 'doc' for document-level, 'sent' for sentence-level"
+    )
+    parser.add_argument(
         "--alpha",
         type=float,
         default=0.3,
@@ -177,7 +183,8 @@ def main():
         graph_builder=graph_builder,
         llm_reasoner=llm_reasoner,
         max_steps=args.max_steps,
-        top_k_per_step=args.top_k
+        top_k_per_step=args.top_k,
+        doc_mode=args.doc_mode
     )
     
     # Process examples

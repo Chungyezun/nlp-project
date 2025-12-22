@@ -83,13 +83,12 @@ class MultiStepRetriever:
                 # Calculate score: prize + connection strength to selected nodes
                 node_score = prizes[candidate]
                 
-                # Add edge contribution (lower edge weight = better, so we use negative)
+                # Add edge contribution (similarity score)
                 edge_contribution = 0.0
                 for sel in selected:
                     if G.has_edge(candidate, sel):
-                        edge_weight = G[candidate][sel].get('weight', 1.0)
-                        # Lower weight is better, so subtract it
-                        edge_contribution += (1.0 - edge_weight)
+                        edge_weight = G[candidate][sel].get('weight', 0.0)
+                        edge_contribution += edge_weight
                 
                 total_score = node_score + 0.5 * edge_contribution
                 

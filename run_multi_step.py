@@ -44,7 +44,7 @@ def main():
     parser.add_argument(
         "--max_steps",
         type=int,
-        default=3,
+        default=2,
         help="Maximum number of retrieval-reasoning iterations"
     )
     parser.add_argument(
@@ -56,19 +56,19 @@ def main():
     parser.add_argument(
         "--limit",
         type=int,
-        default=5,
+        default=10000,
         help="Number of examples to process (for testing)"
     )
     parser.add_argument(
         "--lambda1",
         type=float,
-        default=0.5,
+        default=1,
         help="Weight for document similarity in graph"
     )
     parser.add_argument(
         "--lambda2",
         type=float,
-        default=0.5,
+        default=1,
         help="Weight for union similarity delta in graph"
     )
     parser.add_argument(
@@ -86,7 +86,7 @@ def main():
     parser.add_argument(
         "--doc_mode",
         choices=["doc", "sent"],
-        default="sent",
+        default="doc",
         help="Graph building mode: 'doc' for document-level, 'sent' for sentence-level"
     )
     parser.add_argument(

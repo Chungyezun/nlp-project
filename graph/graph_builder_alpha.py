@@ -30,7 +30,7 @@ class GraphBuilder:
             sent_embs = doc_sent_embeddings[i]
             sims = [self.embedder.sim(sent_emb, query_embedding) for sent_emb in sent_embs]
             max_idx = int(np.argmax(sims))
-            prize = max(0.0, sims[max_idx])
+            prize = sims[max_idx]
             
             node_attrs = {"prize": prize, "selected_sent_idx": max_idx}
             if doc_titles is not None and i < len(doc_titles):
@@ -68,17 +68,9 @@ class GraphBuilder:
                 score = doc_sim + self.alpha * q_min
                 edge_scores[(i, j)] = score
 
-        if self.cost_mode == "scaled":
-            max_s = max(edge_scores.values()) if edge_scores else 1.0
-            if max_s <= 1e-12:
-                max_s = 1.0
-            for (i, j), s in edge_scores.items():
-                cost = self.b * (max_s - s) / max_s
-                G.add_edge(i, j, weight=max(cost, 0.0))
-        else:
-            for (i, j), s in edge_scores.items():
-                cost = self.b * (1.0 - s)
-                G.add_edge(i, j, weight=max(cost, 0.0))
+        # Store similarity directly as edge weight
+        for (i, j), s in edge_scores.items():
+            G.add_edge(i, j, weight=s)
         return G
     
     def build_graph_doclevel(self, doc_embs, query_embedding, doc_texts=None):
@@ -88,7 +80,6 @@ class GraphBuilder:
         prizes = []
         for i in range(n):
             p = self.embedder.sim(doc_embs[i], query_embedding)
-            p = max(0.0, p)
             prizes.append(p)
             G.add_node(i, prize=p)
 
@@ -132,16 +123,8 @@ class GraphBuilder:
                 score = self.lambda1 * sim_ij + self.lambda2 * delta
                 edge_scores[(i, j)] = score
 
-        if self.cost_mode == "scaled":
-            max_s = max(edge_scores.values()) if edge_scores else 1.0
-            if max_s <= 1e-12:
-                max_s = 1.0 
-            for (i, j), s in edge_scores.items():
-                cost = self.b * (max_s - s) / max_s
-                G.add_edge(i, j, weight=max(cost, 0.0))
-        else:
-            for (i, j), s in edge_scores.items():
-                cost = self.b * (1.0 - s)
-                G.add_edge(i, j, weight=max(cost, 0.0))
+        # Store similarity directly as edge weight
+        for (i, j), s in edge_scores.items():
+            G.add_edge(i, j, weight=s)
 
         return G

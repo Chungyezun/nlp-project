@@ -78,6 +78,12 @@ def main():
         help="Scaling factor for delta similarity"
     )
     parser.add_argument(
+        "--delta_mode",
+        choices=["max", "sum"],
+        default="max",
+        help="Delta mode for union gain calculation"
+    )
+    parser.add_argument(
         "--graph_builder",
         choices=["default", "new", "alpha"],
         default="default",
@@ -125,6 +131,17 @@ def main():
         action="store_true",
         help="Print detailed progress during retrieval"
     )
+    parser.add_argument(
+        "--use_precomputed",
+        action="store_true",
+        help="Use precomputed MIP features for first step (initial query only)"
+    )
+    parser.add_argument(
+        "--precomputed_path",
+        type=str,
+        default=None,
+        help="Path to npz file with precomputed features (from set-retrieval)"
+    )
     
     args = parser.parse_args()
     
@@ -142,6 +159,25 @@ def main():
     
     print(f"Initializing LLM: {args.llm_model}...")
     llm_reasoner = LLMReasoner(model_name=args.llm_model)
+    
+    # Load precomputed data if requested
+    precomputed_data = None
+    if args.use_precomputed and args.precomputed_path:
+        import numpy as np
+        if os.path.exists(args.precomputed_path):
+            print(f"Loading precomputed features from {args.precomputed_path}...")
+            data = np.load(args.precomputed_path, allow_pickle=True)
+            records = data["records"]
+            precomputed_data = {}
+            for rec in records:
+                if hasattr(rec, "item"):
+                    rec = rec.item()
+                idx = int(rec["idx"])
+                precomputed_data[idx] = rec
+            print(f"Loaded {len(precomputed_data)} precomputed examples")
+        else:
+            print(f"Warning: Precomputed path not found: {args.precomputed_path}")
+            args.use_precomputed = False
     
     print("Initializing graph builder...")
     if args.graph_builder == "new":
@@ -165,7 +201,10 @@ def main():
             embedder=embedder,
             union_mode="reencode",
             cost_mode="scaled",
-            alpha=args.alpha
+            alpha=args.alpha,
+            use_precomputed=args.use_precomputed,
+            precomputed_path=args.precomputed_path,
+            precomputed_data=precomputed_data
         )
     else:
         graph_builder = GraphBuilder(
@@ -174,7 +213,11 @@ def main():
             gamma=args.gamma,
             embedder=embedder,
             union_mode="reencode",
-            cost_mode="scaled"
+            cost_mode="scaled",
+            delta_mode=args.delta_mode,
+            use_precomputed=args.use_precomputed,
+            precomputed_path=args.precomputed_path,
+            precomputed_data=precomputed_data
         )
     
     print("Initializing multi-step retriever...")
@@ -218,7 +261,8 @@ def main():
                 initial_query=question,
                 doc_texts=doc_texts,
                 doc_titles=titles,
-                verbose=args.verbose
+                verbose=args.verbose,
+                example_idx=i
             )
             
             # Get supporting document indices from original data

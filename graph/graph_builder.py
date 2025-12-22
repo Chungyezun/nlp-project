@@ -5,7 +5,7 @@ from .utils_text import merge_two_docs
 
 
 class GraphBuilder:
-    def __init__(self, lambda1=0.5, lambda2=0.5, gamma=1, b=1, embedder=None, union_mode="avg", cost_mode="default", delta_mode="max"):
+    def __init__(self, lambda1=0.5, lambda2=0.5, gamma=1, b=1, embedder=None, union_mode="avg", cost_mode="default", delta_mode="max", use_precomputed=False, precomputed_path=None, precomputed_data=None):
         self.lambda1 = lambda1
         self.lambda2 = lambda2
         self.embedder = embedder
@@ -14,6 +14,9 @@ class GraphBuilder:
         self.union_mode = union_mode
         self.cost_mode = cost_mode
         self.delta_mode = delta_mode
+        self.use_precomputed = use_precomputed
+        self.precomputed_path = precomputed_path
+        self._precomputed_data = precomputed_data  # dict: idx -> record
 
     @staticmethod
     def _unit(v, eps=1e-12):
@@ -74,10 +77,41 @@ class GraphBuilder:
             G.add_edge(i, j, weight=s)
         return G
     
-    def build_graph_doclevel(self, doc_embs, query_embedding, doc_texts=None):
+    def build_graph_doclevel(self, doc_embs, query_embedding, doc_texts=None, example_idx=None):
         G = nx.Graph()
         n = len(doc_embs)
 
+        # Try to use precomputed data if available
+        if (self.use_precomputed and self._precomputed_data is not None 
+            and example_idx is not None and example_idx in self._precomputed_data):
+            rec = self._precomputed_data[example_idx]
+            rel = np.array(rec["rel"], dtype=float)
+            pair_sim = np.array(rec["pair_sim"], dtype=float)
+            if self.delta_mode == "sum":
+                pair_gain = np.array(rec["pair_gain_sum"], dtype=float)
+            else:  # "max"
+                pair_gain = np.array(rec["pair_gain_max"], dtype=float)
+            
+            # Use precomputed values
+            prizes = rel.tolist()
+            for i in range(n):
+                G.add_node(i, prize=prizes[i])
+            
+            edge_scores = {}
+            for i in range(n):
+                for j in range(i+1, n):
+                    sim_ij = pair_sim[i, j]
+                    delta = self.gamma * pair_gain[i, j]
+                    score = self.lambda1 * sim_ij + self.lambda2 * delta
+                    edge_scores[(i, j)] = score
+            
+            # Store similarity directly as edge weight
+            for (i, j), s in edge_scores.items():
+                G.add_edge(i, j, weight=s)
+            
+            return G
+
+        # Fallback: original computation
         prizes = []
         for i in range(n):
             p = self.embedder.sim(doc_embs[i], query_embedding)

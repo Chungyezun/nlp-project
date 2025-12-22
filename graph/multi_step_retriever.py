@@ -109,7 +109,8 @@ class MultiStepRetriever:
         initial_query: str,
         doc_texts: List[str],
         doc_titles: List[str] = None,
-        verbose: bool = True
+        verbose: bool = True,
+        example_idx: int = None
     ) -> Dict[str, Any]:
         """
         Perform multi-step retrieval with iterative graph building and LLM reasoning.
@@ -152,10 +153,13 @@ class MultiStepRetriever:
                 # 2. Build graph (document-level)
                 if verbose:
                     print("Building graph (document-level)...")
+                # Use precomputed data only for first step (step == 0)
+                use_precomputed_idx = example_idx if step == 0 else None
                 G = self.graph_builder.build_graph_doclevel(
                     doc_embeddings,
                     query_embedding,
-                    doc_texts=doc_texts
+                    doc_texts=doc_texts,
+                    example_idx=use_precomputed_idx
                 )
             else:
                 # Sentence-level mode (default)
